@@ -43,8 +43,13 @@ const columns = [
 ];
 
 async function fetchData() {
-  const res = await getGroups();
-  groups.value = res.data;
+  try {
+    const res = await getGroups();
+    groups.value = res.data;
+  } catch (error) {
+    console.error('Error fetching groups:', error);
+    alert('Failed to load groups. Check console for details.');
+  }
 }
 
 function editItem(item) {
@@ -54,21 +59,36 @@ function editItem(item) {
 }
 
 async function saveItem() {
-  if (editingId.value) {
-    await updateGroup(editingId.value, form.value);
-  } else {
-    await createGroup(form.value);
+  try {
+    if (!form.value.name || !form.value.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+
+    if (editingId.value) {
+      await updateGroup(editingId.value, form.value);
+    } else {
+      await createGroup(form.value);
+    }
+    showModal.value = false;
+    form.value = { name: '', display_order: 0, show_on_dashboard: true };
+    editingId.value = null;
+    await fetchData();
+  } catch (error) {
+    console.error('Error saving group:', error);
+    alert(error.response?.data?.error || 'Failed to save group. Check console for details.');
   }
-  showModal.value = false;
-  form.value = { name: '', display_order: 0, show_on_dashboard: true };
-  editingId.value = null;
-  fetchData();
 }
 
 async function deleteItem(id) {
-  if (confirm('Delete this group?')) {
+  if (!confirm('Delete this group?')) return;
+
+  try {
     await deleteGroup(id);
-    fetchData();
+    await fetchData();
+  } catch (error) {
+    console.error('Error deleting group:', error);
+    alert(error.response?.data?.error || 'Failed to delete group. Check console for details.');
   }
 }
 

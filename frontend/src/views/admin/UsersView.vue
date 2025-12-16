@@ -44,8 +44,13 @@ const columns = [
 ];
 
 async function fetchData() {
-  const res = await getUsers();
-  users.value = res.data;
+  try {
+    const res = await getUsers();
+    users.value = res.data;
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    alert('Failed to load users. Check console for details.');
+  }
 }
 
 function editItem(item) {
@@ -55,21 +60,40 @@ function editItem(item) {
 }
 
 async function saveItem() {
-  if (editingId.value) {
-    await updateUser(editingId.value, form.value);
-  } else {
-    await createUser(form.value);
+  try {
+    if (!form.value.username || !form.value.username.trim()) {
+      alert('Username is required');
+      return;
+    }
+    if (!editingId.value && (!form.value.password || !form.value.password.trim())) {
+      alert('Password is required for new users');
+      return;
+    }
+
+    if (editingId.value) {
+      await updateUser(editingId.value, form.value);
+    } else {
+      await createUser(form.value);
+    }
+    showModal.value = false;
+    form.value = { username: '', password: '', role: 'evaluator', active: true };
+    editingId.value = null;
+    await fetchData();
+  } catch (error) {
+    console.error('Error saving user:', error);
+    alert(error.response?.data?.error || 'Failed to save user. Check console for details.');
   }
-  showModal.value = false;
-  form.value = { username: '', password: '', role: 'evaluator', active: true };
-  editingId.value = null;
-  fetchData();
 }
 
 async function deleteItem(id) {
-  if (confirm('Delete this user?')) {
+  if (!confirm('Delete this user?')) return;
+
+  try {
     await deleteUser(id);
-    fetchData();
+    await fetchData();
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    alert(error.response?.data?.error || 'Failed to delete user. Check console for details.');
   }
 }
 

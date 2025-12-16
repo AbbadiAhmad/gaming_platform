@@ -43,9 +43,14 @@ const groupOptions = computed(() =>
 );
 
 async function fetchData() {
-  const [teamsRes, groupsRes] = await Promise.all([getTeams(), getGroups()]);
-  teams.value = teamsRes.data;
-  groups.value = groupsRes.data;
+  try {
+    const [teamsRes, groupsRes] = await Promise.all([getTeams(), getGroups()]);
+    teams.value = teamsRes.data;
+    groups.value = groupsRes.data;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    alert('Failed to load data. Check console for details.');
+  }
 }
 
 function editItem(item) {
@@ -55,21 +60,40 @@ function editItem(item) {
 }
 
 async function saveItem() {
-  if (editingId.value) {
-    await updateTeam(editingId.value, form.value);
-  } else {
-    await createTeam(form.value);
+  try {
+    if (!form.value.name || !form.value.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+    if (!form.value.group_id) {
+      alert('Group is required');
+      return;
+    }
+
+    if (editingId.value) {
+      await updateTeam(editingId.value, form.value);
+    } else {
+      await createTeam(form.value);
+    }
+    showModal.value = false;
+    form.value = { name: '', group_id: null };
+    editingId.value = null;
+    await fetchData();
+  } catch (error) {
+    console.error('Error saving team:', error);
+    alert(error.response?.data?.error || 'Failed to save team. Check console for details.');
   }
-  showModal.value = false;
-  form.value = { name: '', group_id: null };
-  editingId.value = null;
-  fetchData();
 }
 
 async function deleteItem(id) {
-  if (confirm('Delete this team?')) {
+  if (!confirm('Delete this team?')) return;
+
+  try {
     await deleteTeam(id);
-    fetchData();
+    await fetchData();
+  } catch (error) {
+    console.error('Error deleting team:', error);
+    alert(error.response?.data?.error || 'Failed to delete team. Check console for details.');
   }
 }
 

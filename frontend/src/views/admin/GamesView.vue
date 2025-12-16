@@ -47,8 +47,13 @@ const columns = [
 ];
 
 async function fetchData() {
-  const res = await getGames();
-  games.value = res.data;
+  try {
+    const res = await getGames();
+    games.value = res.data;
+  } catch (error) {
+    console.error('Error fetching games:', error);
+    alert('Failed to load games. Check console for details.');
+  }
 }
 
 function editItem(item) {
@@ -58,21 +63,36 @@ function editItem(item) {
 }
 
 async function saveItem() {
-  if (editingId.value) {
-    await updateGame(editingId.value, form.value);
-  } else {
-    await createGame(form.value);
+  try {
+    if (!form.value.name || !form.value.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+
+    if (editingId.value) {
+      await updateGame(editingId.value, form.value);
+    } else {
+      await createGame(form.value);
+    }
+    showModal.value = false;
+    form.value = { name: '', display_order: 0, min_points: 0, max_points: 100, show_on_dashboard: true };
+    editingId.value = null;
+    await fetchData();
+  } catch (error) {
+    console.error('Error saving game:', error);
+    alert(error.response?.data?.error || 'Failed to save game. Check console for details.');
   }
-  showModal.value = false;
-  form.value = { name: '', display_order: 0, min_points: 0, max_points: 100, show_on_dashboard: true };
-  editingId.value = null;
-  fetchData();
 }
 
 async function deleteItem(id) {
-  if (confirm('Delete this game?')) {
+  if (!confirm('Delete this game?')) return;
+
+  try {
     await deleteGame(id);
-    fetchData();
+    await fetchData();
+  } catch (error) {
+    console.error('Error deleting game:', error);
+    alert(error.response?.data?.error || 'Failed to delete game. Check console for details.');
   }
 }
 

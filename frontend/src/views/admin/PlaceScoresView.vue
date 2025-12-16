@@ -39,8 +39,13 @@ const columns = [
 ];
 
 async function fetchData() {
-  const res = await getPlaceScores();
-  placeScores.value = res.data;
+  try {
+    const res = await getPlaceScores();
+    placeScores.value = res.data;
+  } catch (error) {
+    console.error('Error fetching place scores:', error);
+    alert('Failed to load place scores. Check console for details.');
+  }
 }
 
 function editItem(item) {
@@ -50,21 +55,31 @@ function editItem(item) {
 }
 
 async function saveItem() {
-  if (editingId.value) {
-    await updatePlaceScore(editingId.value, form.value);
-  } else {
-    await createPlaceScore(form.value);
+  try {
+    if (editingId.value) {
+      await updatePlaceScore(editingId.value, form.value);
+    } else {
+      await createPlaceScore(form.value);
+    }
+    showModal.value = false;
+    form.value = { place: 1, score: 0 };
+    editingId.value = null;
+    await fetchData();
+  } catch (error) {
+    console.error('Error saving place score:', error);
+    alert(error.response?.data?.error || 'Failed to save place score. Check console for details.');
   }
-  showModal.value = false;
-  form.value = { place: 1, score: 0 };
-  editingId.value = null;
-  fetchData();
 }
 
 async function deleteItem(id) {
-  if (confirm('Delete this place score?')) {
+  if (!confirm('Delete this place score?')) return;
+
+  try {
     await deletePlaceScore(id);
-    fetchData();
+    await fetchData();
+  } catch (error) {
+    console.error('Error deleting place score:', error);
+    alert(error.response?.data?.error || 'Failed to delete place score. Check console for details.');
   }
 }
 
