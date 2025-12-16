@@ -70,18 +70,29 @@ async function saveItem() {
       return;
     }
 
-    if (editingId.value) {
-      await updateUser(editingId.value, form.value);
-    } else {
-      await createUser(form.value);
+    const payload = {
+      username: form.value.username,
+      role: form.value.role,
+      active: form.value.active ? 1 : 0
+    };
+
+    if (form.value.password) {
+      payload.password = form.value.password;
     }
+
+    if (editingId.value) {
+      await updateUser(editingId.value, payload);
+    } else {
+      await createUser(payload);
+    }
+
     showModal.value = false;
-    form.value = { username: '', password: '', role: 'evaluator', active: true };
+    form.value = { username: ', password: ', role: 'evaluator', active: true };
     editingId.value = null;
     await fetchData();
   } catch (error) {
     console.error('Error saving user:', error);
-    alert(error.response?.data?.error || 'Failed to save user. Check console for details.');
+    alert(error.response?.data?.error || 'Failed to save user.');
   }
 }
 

@@ -48,12 +48,12 @@ async function fetchData() {
     groups.value = res.data;
   } catch (error) {
     console.error('Error fetching groups:', error);
-    alert('Failed to load groups. Check console for details.');
+    alert('Failed to load groups.');
   }
 }
 
 function editItem(item) {
-  form.value = { ...item };
+  form.value = { ...item, show_on_dashboard: !!item.show_on_dashboard };
   editingId.value = item.id;
   showModal.value = true;
 }
@@ -65,18 +65,30 @@ async function saveItem() {
       return;
     }
 
+    // Convert boolean to integer for SQLite
+    const payload = {
+      name: form.value.name,
+      display_order: Number(form.value.display_order),
+      show_on_dashboard: form.value.show_on_dashboard ? 1 : 0
+    };
+
+    console.log('Saving group:', payload);
+
     if (editingId.value) {
-      await updateGroup(editingId.value, form.value);
+      await updateGroup(editingId.value, payload);
     } else {
-      await createGroup(form.value);
+      await createGroup(payload);
     }
+
     showModal.value = false;
     form.value = { name: '', display_order: 0, show_on_dashboard: true };
     editingId.value = null;
     await fetchData();
+    console.log('Group saved successfully!');
   } catch (error) {
     console.error('Error saving group:', error);
-    alert(error.response?.data?.error || 'Failed to save group. Check console for details.');
+    const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
+    alert(`Failed to save group: ${errorMsg}`);
   }
 }
 
@@ -88,7 +100,7 @@ async function deleteItem(id) {
     await fetchData();
   } catch (error) {
     console.error('Error deleting group:', error);
-    alert(error.response?.data?.error || 'Failed to delete group. Check console for details.');
+    alert(error.response?.data?.error || 'Failed to delete group.');
   }
 }
 

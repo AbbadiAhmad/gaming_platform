@@ -69,18 +69,27 @@ async function saveItem() {
       return;
     }
 
+    const payload = {
+      name: form.value.name,
+      display_order: Number(form.value.display_order),
+      min_points: Number(form.value.min_points),
+      max_points: Number(form.value.max_points),
+      show_on_dashboard: form.value.show_on_dashboard ? 1 : 0
+    };
+
     if (editingId.value) {
-      await updateGame(editingId.value, form.value);
+      await updateGame(editingId.value, payload);
     } else {
-      await createGame(form.value);
+      await createGame(payload);
     }
+
     showModal.value = false;
-    form.value = { name: '', display_order: 0, min_points: 0, max_points: 100, show_on_dashboard: true };
+    form.value = { name: ', display_order: 0, min_points: 0, max_points: 100, show_on_dashboard: true };
     editingId.value = null;
     await fetchData();
   } catch (error) {
     console.error('Error saving game:', error);
-    alert(error.response?.data?.error || 'Failed to save game. Check console for details.');
+    alert(error.response?.data?.error || 'Failed to save game.');
   }
 }
 
