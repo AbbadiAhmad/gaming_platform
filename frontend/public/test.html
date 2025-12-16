@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><title>API Test</title></head>
+<body>
+  <h2>Test Group Creation</h2>
+  <button onclick="test()">Create Test Group</button>
+  <pre id="output"></pre>
+  
+  <script>
+    async function test() {
+      const token = localStorage.getItem('token');
+      const output = document.getElementById('output');
+      
+      const payload = {
+        name: 'Test Group',
+        display_order: 1,
+        show_on_dashboard: 1
+      };
+      
+      output.textContent = 'Token: ' + (token ? 'Present' : 'MISSING!') + '\n';
+      output.textContent += 'Sending: ' + JSON.stringify(payload, null, 2) + '\n\n';
+      
+      try {
+        const response = await fetch('/api/groups', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        output.textContent += 'Status: ' + response.status + '\n';
+        output.textContent += 'Response: ' + JSON.stringify(data, null, 2);
+      } catch (error) {
+        output.textContent += '\nError: ' + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
