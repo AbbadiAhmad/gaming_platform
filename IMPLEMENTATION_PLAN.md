@@ -24,8 +24,8 @@ A comprehensive web application for managing game competitions with real-time sc
 - **Validation**: express-validator
 
 ### DevOps
-- **Containerization**: Docker + Docker Compose
-- **Reverse Proxy**: Nginx (in production)
+- **Containerization**: Docker (single container, frontend + backend)
+- **Static Files**: Express serves built frontend (no nginx needed)
 
 ## Database Schema
 
@@ -85,6 +85,8 @@ CREATE TABLE games (
 
 #### 5. place_scores
 ```sql
+-- Supports unlimited places (1st, 2nd, 3rd, 4th, ...)
+-- Multiple teams can have same place (ties get same score)
 CREATE TABLE place_scores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     place INTEGER UNIQUE NOT NULL,
@@ -96,14 +98,16 @@ CREATE TABLE place_scores (
 
 #### 6. game_evaluations
 ```sql
+-- place and game_score are calculated fields (denormalized for performance)
+-- Auto-recalculated when points change or place_scores config changes
 CREATE TABLE game_evaluations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     game_id INTEGER NOT NULL,
     team_id INTEGER NOT NULL,
     group_id INTEGER NOT NULL,
     points REAL NOT NULL,
-    place INTEGER,
-    game_score REAL DEFAULT 0,
+    place INTEGER,              -- Calculated from points ranking
+    game_score REAL DEFAULT 0,  -- Looked up from place_scores[place]
     evaluated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     evaluated_by INTEGER,
     FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
@@ -127,16 +131,39 @@ CREATE TABLE app_settings (
 
 1. **Team gets points in a game**: Evaluator enters points (validated between min_points and max_points)
 2. **Calculate place within group**: Rank all teams in the same group for that game by points (DESC)
+   - **Ties handled**: Teams with identical points get the same place
 3. **Assign game score based on place**: Look up place in `place_scores` table
 4. **Calculate total team score**: Sum all game_scores for the team across all games in their group
 
 ### Example Calculation
 ```
-Team A in Group 1, Game "Basketball":
-- Points earned: 17 (out of max 20)
-- Ranking in Group 1 for Basketball: 1st place
-- Place score (from config): 5 points
-- Team A's total score in Group 1: Sum of all game scores (5 + other games...)
+Group 1, Game "Basketball":
+- Team A: 17 points → 1st place → 5 game_score
+- Team B: 17 points → 1st place → 5 game_score (tied!)
+- Team C: 15 points → 3rd place → 3 game_score
+
+Team A's total in Group 1: 5 + (scores from other games...)
+```
+
+## Real-time & Minimal Data Transfer
+
+**Strategy**: Delta updates only, lightweight payloads
+- **WebSocket events**: Emit only changed evaluations (not full dataset)
+- **Dashboard API**: Returns ~1KB JSON per group (top teams + totals)
+- **Client caching**: Store full state, only update deltas
+- **Polling fallback**: Dashboard polls every 5s if WebSocket fails
+
+**Example WebSocket Event**:
+```json
+{
+  "type": "evaluation_updated",
+  "data": {
+    "groupId": 1,
+    "teamId": 5,
+    "gameId": 3,
+    "newTotal": 23
+  }
+}
 ```
 
 ## Project Structure
@@ -232,18 +259,12 @@ gaming_platform/
 │   ├── package.json
 │   └── README.md
 │
-├── docker/
-│   ├── frontend/
-│   │   └── Dockerfile
-│   ├── backend/
-│   │   └── Dockerfile
-│   ├── nginx/
-│   │   ├── Dockerfile
-│   │   └── nginx.conf
-│   └── docker-compose.yml
+├── Dockerfile                    # Single container (backend + built frontend)
+├── docker-compose.yml
+├── .dockerignore
 │
-├── database/
-│   └── (SQLite database file will be created here)
+├── data/
+│   └── gaming_platform.db       # SQLite database (created at runtime)
 │
 ├── .gitignore
 ├── README.md
@@ -481,39 +502,28 @@ gaming_platform/
 
 ### Development
 ```bash
-# Backend
+# Backend serves both API and frontend
 cd backend
-npm install
-npm run dev
-
-# Frontend
-cd frontend
 npm install
 npm run dev
 ```
 
-### Production (Docker)
+### Production (Simple - Single Container)
 ```bash
-cd docker
+# Frontend builds to backend/public, Express serves everything
 docker-compose up -d
+# Access at http://localhost:3000
 ```
 
 ### Environment Variables
 
-**Backend (.env)**
+**Backend (.env)** - Only file needed
 ```
 NODE_ENV=production
 PORT=3000
 JWT_SECRET=your-secret-key-change-this
 JWT_EXPIRES_IN=24h
-DATABASE_PATH=../database/gaming_platform.db
-CORS_ORIGIN=http://localhost:5173
-```
-
-**Frontend (.env)**
-```
-VITE_API_URL=http://localhost:3000
-VITE_WS_URL=ws://localhost:3000
+DATABASE_PATH=/app/data/gaming_platform.db
 ```
 
 ## Success Metrics
